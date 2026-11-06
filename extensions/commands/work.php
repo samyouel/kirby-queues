@@ -18,6 +18,11 @@ return [
 			'longPrefix' => 'once',
 			'noValue' => true
 		],
+		'stop-when-empty' => [
+			'description' => 'Exit when the queue is empty',
+			'longPrefix' => 'stop-when-empty',
+			'noValue' => true
+		],
 		'timeout' => [
 			'description' => 'Job timeout in seconds',
 			'prefix' => 't',
@@ -60,7 +65,7 @@ return [
 		]));
 
 		try {
-			$worker->work($queues, $cli->isDefined('once'));
+			$worker->work($queues, $cli->isDefined('once'), $cli->isDefined('stop-when-empty'));
 		} catch (\Exception $e) {
 			$cli->error("Worker error: " . $e->getMessage());
 			exit(1);

@@ -90,20 +90,28 @@ class Worker
 	 * Start the worker loop
 	 *
 	 * @param string|array<string>|null $queues Queue names to process
+	 * @param bool $once Exit after processing one job
+	 * @param bool $stopWhenEmpty Exit as soon as no job is available (after queueing due scheduled jobs)
 	 */
-	public function work(string|array|null $queues = null, bool $once = false): void
+	public function work(string|array|null $queues = null, bool $once = false, bool $stopWhenEmpty = false): void
 	{
 		$queues = $this->normalizeQueues($queues);
 
-		$this->cli->br();
-		$this->cli->bold()->out('🚀 Queue Worker Started');
-		$this->cli->br();
+		if ($this->cli) {
+			$this->cli->br();
+			$this->cli->bold()->out('🚀 Queue Worker Started');
+			$this->cli->br();
 
-		$padding = $this->cli->padding(25)->char('.');
-		$padding->label('Worker ID')->result(substr($this->workerId, 0, 20) . '...');
-		$padding->label('Processing queues')->result(implode(', ', $queues));
-		$padding->label('Mode')->result($once ? 'Single job' : 'Continuous');
-		$this->cli->br();
+			$padding = $this->cli->padding(25)->char('.');
+			$padding->label('Worker ID')->result(substr($this->workerId, 0, 20) . '...');
+			$padding->label('Processing queues')->result(implode(', ', $queues));
+			$padding->label('Mode')->result(match (true) {
+				$once => 'Single job',
+				$stopWhenEmpty => 'Until queue is empty',
+				default => 'Continuous'
+			});
+			$this->cli->br();
+		}
 
 		App::instance()->trigger('tobimori.queues.worker:before', [
 			'worker' => $this,
@@ -138,8 +146,12 @@ class Worker
 				}
 			}
 
-			// if no jobs were processed, sleep before next check
+			// if no jobs were processed, stop or sleep before next check
 			if (!$processed) {
+				if ($stopWhenEmpty) {
+					break;
+				}
+
 				$this->sleep();
 			}
 

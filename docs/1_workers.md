@@ -60,6 +60,8 @@ The worker command accepts several options to control its behavior:
 
 In production, you need workers to run continuously, restart on failure, and start automatically when your server boots. The two most common approaches are using supervisord or systemd.
 
+If you can't run long-lived processes, for example on shared hosting, use a cron job instead (see [Cron Setup](#cron-setup)).
+
 ## Supervisord Setup
 
 Supervisord is a popular process manager that's perfect for managing queue workers. It monitors your workers, restarts them if they crash, and provides easy log management.
@@ -158,6 +160,20 @@ View logs:
 ```bash
 sudo journalctl -u kirby-queues -f
 ```
+
+## Cron Setup
+
+Many shared hosting plans don't allow long-running processes and stop them after a while. There, start the worker every minute from cron and let it exit once there is nothing left to do:
+
+```cron
+* * * * * cd /path/to/your/site && flock -n /tmp/kirby-queues.lock vendor/bin/kirby queues:work --stop-when-empty
+```
+
+- `--stop-when-empty` queues any due scheduled jobs, processes all available jobs and then exits, so each run usually takes only a few seconds.
+- `flock -n` skips a run while the previous one is still working, so only one worker runs at a time. Many hosts require this for cron jobs that run more often than every few hours.
+- Use the PHP binary your site runs on if the default `php` on the command line is a different version, e.g. `/usr/bin/php8.3 vendor/bin/kirby …`.
+
+Jobs are then processed with a delay of up to one minute. Use the [SQLite storage](0_installation.md#storage), as web requests and the cron worker access the queue at the same time.
 
 ## Monitoring
 
