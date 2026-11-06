@@ -4,6 +4,9 @@ namespace tobimori\Queues;
 
 use Kirby\Cms\App;
 use Kirby\Exception\InvalidArgumentException;
+use tobimori\Queues\Storage\CacheStorage;
+use tobimori\Queues\Storage\SqliteStorage;
+use tobimori\Queues\Storage\StorageInterface;
 
 /**
  * Main entry point for the Queues system
@@ -40,13 +43,45 @@ class Queues
 	 */
 	public static function init(): void
 	{
-		static::$manager = new Manager();
+		static::$manager = new Manager(static::createStorage());
 
 		// Register default queues from config
 		$defaultQueues = App::instance()->option('tobimori.queues.queues', ['default', 'high', 'low']);
 		foreach ($defaultQueues as $queue) {
 			static::registerQueue($queue);
 		}
+	}
+
+	/**
+	 * Create the storage configured in `tobimori.queues.storage`
+	 *
+	 * Accepts 'cache' (default), 'sqlite', a StorageInterface instance,
+	 * a StorageInterface class name or a closure returning a StorageInterface.
+	 *
+	 * @throws InvalidArgumentException If the option doesn't resolve to a StorageInterface
+	 * @internal
+	 */
+	public static function createStorage(): StorageInterface
+	{
+		$storage = App::instance()->option('tobimori.queues.storage', 'cache');
+
+		if ($storage instanceof \Closure) {
+			$storage = $storage();
+		}
+
+		$storage = match ($storage) {
+			'cache' => new CacheStorage(),
+			'sqlite' => new SqliteStorage(),
+			default => is_string($storage) && is_subclass_of($storage, StorageInterface::class)
+				? new $storage()
+				: $storage
+		};
+
+		if (!$storage instanceof StorageInterface) {
+			throw new InvalidArgumentException('The tobimori.queues.storage option must be "cache", "sqlite" or resolve to a ' . StorageInterface::class);
+		}
+
+		return $storage;
 	}
 
 	/**

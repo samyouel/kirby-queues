@@ -1,5 +1,6 @@
 <?php
 
+use tobimori\Queues\JobStatus;
 use tobimori\Queues\Tests\Jobs\ProcessDataJob;
 use tobimori\Queues\Queues;
 
@@ -15,8 +16,8 @@ uses()->beforeEach(function () {
 
 	// Clear all jobs from storage
 	$storage = Queues::manager()->storage();
-	foreach (['pending', 'processing', 'completed', 'failed'] as $status) {
-		$jobs = $storage->getByStatus($status, 1000);
+	foreach (JobStatus::cases() as $status) {
+		$jobs = $storage->getByStatus($status->value, 1000);
 		foreach ($jobs as $job) {
 			$storage->delete($job['id']);
 		}

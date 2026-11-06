@@ -20,6 +20,11 @@ $app = new App([
 		'index' => __DIR__,
 		'base' => __DIR__,
 	],
+	'options' => [
+		// run the suite against another storage with QUEUES_STORAGE=sqlite
+		'tobimori.queues.storage' => getenv('QUEUES_STORAGE') ?: 'cache',
+		'tobimori.queues.sqlite.path' => __DIR__ . '/site/cache/queues-test.sqlite',
+	],
 ]);
 
 // Register test job types

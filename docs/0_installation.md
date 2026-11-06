@@ -98,6 +98,8 @@ While Queues works beautifully out of the box, you can fine-tune its behavior to
 | tobimori.queues.queues | `['default', 'high', 'low']` | `array` | Available queue names. You can add custom queues like 'emails', 'exports', or 'notifications' |
 | tobimori.queues.default | `'default'` | `string` | The default queue used when you don't specify one explicitly |
 | tobimori.queues.connection.cache | `'tobimori.queues'` | `string` | The cache store name used for queue storage |
+| tobimori.queues.storage | `'cache'` | `'cache'`, `'sqlite'`, `StorageInterface`, class name or `Closure` | Where jobs are stored, see [Storage](#storage) |
+| tobimori.queues.sqlite.path | `<cache root>/tobimori.queues/queues.sqlite` | `string` | Database file used by the SQLite storage |
 
 ### Worker Settings
 
@@ -130,11 +132,32 @@ Configure how scheduled jobs behave when using the built-in scheduler:
 | tobimori.queues.schedule.timezone | `'UTC'` | `string` | Timezone for evaluating cron expressions |
 | tobimori.queues.schedule.overlap | `false` | `bool` | Whether to allow the same scheduled job to run multiple times concurrently |
 
-## Cache Drivers
+## Storage
 
-Queues leverages Kirby's Cache API for storage, which means you can choose from various storage backends. While the default file-based cache works well for development, production environments will benefit from using Redis or SQLite.
+By default, Queues stores jobs in Kirby's cache. This works well for development, but the cache storage has no locking: when several requests push jobs at the same time, or a worker pops a job while a request pushes one, jobs can be dropped from the queue or picked up twice.
 
-For available cache drivers and configuration options, check out:
+For production, use the SQLite storage. It keeps all jobs in a single database file and runs every change inside a transaction, so concurrent requests and workers never lose or duplicate a job. It also doesn't depend on the request host, so the Panel and CLI workers always see the same jobs.
+
+```php
+// site/config/config.php
+return [
+    'tobimori.queues' => [
+        'storage' => 'sqlite',
+        // optional, defaults to <cache root>/tobimori.queues/queues.sqlite
+        'sqlite' => [
+            'path' => __DIR__ . '/../../storage/queues.sqlite'
+        ]
+    ]
+];
+```
+
+The SQLite storage needs the `pdo_sqlite` PHP extension and a local filesystem, as SQLite relies on file locks that network shares (NFS, SMB) often don't support. Keep the database outside your public folder and out of version control, and make sure deployments don't delete it, otherwise pending jobs are lost.
+
+To use your own backend, pass a class implementing `tobimori\Queues\Storage\StorageInterface`, an instance of it, or a closure returning one.
+
+### Cache Drivers
+
+The cache storage uses Kirby's Cache API, so you can switch its cache driver. For available cache drivers and configuration options, check out:
 - [Kirby cache driver plugins](https://plugins.getkirby.com/types/cache-driver)
 - [Cache configuration documentation](https://getkirby.com/docs/reference/system/options/cache)
 
